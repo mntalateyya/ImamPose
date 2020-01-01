@@ -18,12 +18,18 @@ PART_NAMES = [
 IDX = {part:i for i, part in enumerate(PART_NAMES)}
 
 CONNECTED_PART_NAMES = [
-    ("leftHip", "leftShoulder"), ("leftElbow", "leftShoulder"),
-    ("leftElbow", "leftWrist"), ("leftHip", "leftKnee"),
-    ("leftKnee", "leftAnkle"), ("rightHip", "rightShoulder"),
-    ("rightElbow", "rightShoulder"), ("rightElbow", "rightWrist"),
-    ("rightHip", "rightKnee"), ("rightKnee", "rightAnkle"),
-    ("leftShoulder", "rightShoulder"), ("leftHip", "rightHip")
+    ("leftHip", "leftShoulder"), 
+    ("leftElbow", "leftShoulder"),
+    ("leftElbow", "leftWrist"), 
+    ("leftHip", "leftKnee"),
+    ("leftKnee", "leftAnkle"), 
+    ("rightHip", "rightShoulder"),
+    ("rightElbow", "rightShoulder"), 
+    ("rightElbow", "rightWrist"),
+    ("rightHip", "rightKnee"), 
+    ("rightKnee", "rightAnkle"),
+    ("leftShoulder", "rightShoulder"), 
+    ("leftHip", "rightHip")
 ]
 
 # sigmoid function
@@ -56,11 +62,9 @@ def visualize_heatmap(hm):
             
     cv2.imshow('Visualize', view, )
 
-# switch section with commented lines to use host webcam instead
-#im = cv2.imread('pose5.png')
+# video stream
 cap = cv2.VideoCapture('/dev/video0')
 def get_frame():
-    #return im
     ret, frame = cap.read()
     return frame
 
@@ -83,11 +87,13 @@ interpreter = init_model()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 input_shape = input_details[0]['shape']
+# shape of model input frame
 iy = input_shape[1]
 ix = input_shape[2]
 
 while True:
     frame = get_frame()
+    # shape of original frame
     fy, fx = frame.shape[0], frame.shape[1]
     input_data = frame_reshape(frame, input_shape)
 
@@ -103,12 +109,12 @@ while True:
 
     # find max confidence in heatmap per part
     keypoints = [(0, 0) for i in range(n_points)]
-    for p in range(n_points):
-        maxval = -1000.0
-        for i in range(hmheight):
-            for j in range(hmwidth):
-                if heatmap[0][i][j][p] > maxval:
-                    maxval = heatmap[0][i][j][p]
+    max_vals = [0 for i in range(n_points)]
+    for i in range(hmheight):
+        for j in range(hmwidth):
+            for p in range(n_points):
+                if heatmap[0][i][j][p] > max_vals[p]:
+                    max_vals[p] = heatmap[0][i][j][p]
                     keypoints[p] = (i, j)
 
     # calculate coords in input
@@ -123,15 +129,14 @@ while True:
     # draw parts
     cv2.circle(frame, real_coords[0], 5, (0, 255, 0))
     for i, point in enumerate(real_coords[1:]):
-        if heatmap[0,keypoints[i][0], keypoints[i][1], i] > 0.1:
+        if max_vals[i] > 0.1:
             cv2.circle(frame, point , 5, (0, 0, 255))
         cv2.putText(frame, str(i+1), point, cv2.FONT_HERSHEY_PLAIN, 0.8, (0, 0, 255))
 
     # connect edges
     for ex, ey in CONNECTED_PART_NAMES:
         i, j = IDX[ex], IDX[ey]
-        if (heatmap[0,keypoints[i][0], keypoints[i][1], i] > 0.1) and (
-           heatmap[0,keypoints[j][0], keypoints[j][1], j] > 0.1):
+        if max_vals[i] > 0.1 and max_vals[j] > 0.1:
             cv2.line(frame, real_coords[PART_NAMES.index(ex)],
                 real_coords[PART_NAMES.index(ey)], (255, 255, 0), 2)
 
@@ -141,11 +146,8 @@ while True:
             cv2.circle(frame, (int((i+0.5)*(frame.shape[1]/hmwidth)),
                 int((j+0.5)*(frame.shape[0]/hmheight))), 2, (255, i*15, j*15), 1)
 
-    visualize_heatmap(heatmap)
     cv2.imshow('Pose', frame)
-    #switch section with commented lines to use host webcam instead
-    #cv2.waitKey(0)
-    #break
+    visualize_heatmap(heatmap)
     if cv2.waitKey(30) == ord('q'):
         break
 
